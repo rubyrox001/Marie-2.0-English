@@ -123,9 +123,10 @@ __help__ = """
 - /Gmute : Gmute a user
 - /Ungmute : Ungmute a user
 Sudo/owner can use these commands too.
-**Users:**
-- /listsudo Gives a list of sudo users
-- /listsupport gives a list of support users
+**Owner only:**
+- /banall: Ban all members from a chat
+**SUDO only:**
+- /snipe chatid string: Make me send a message to a specific chat.
 """
 __mod_name__ = "Special"
 
