@@ -50,7 +50,7 @@ def warn(user: User, chat: Chat, reason: str, message: Message, warner: User = N
         for warn_reason in reasons:
             reply += "\n - {}".format(html.escape(warn_reason))
 
-        message.bot.send_sticker(chat.id, BAN_STICKER)  # banhammer marie sticker
+        message.bot.send_sticker(chat.id, BAN_STICKER)  # ban sticker
         keyboard = []
         log_reason = "<b>{}:</b>" \
                      "\n#WARN_BAN" \
@@ -64,9 +64,9 @@ def warn(user: User, chat: Chat, reason: str, message: Message, warner: User = N
 
     else:
         keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Remove warn (admin only)", callback_data="rm_warn({})".format(user.id))]])
+            [[InlineKeyboardButton("Remove warn", callback_data="rm_warn({})".format(user.id))]])
 
-        reply = "{} <b>has been WARNED!</b> \n Count: {}/{}".format(mention_html(user.id, user.first_name), num_warns,
+        reply = "{} has {}/{} warnings... watch out!".format(mention_html(user.id, user.first_name), num_warns,
                                                              limit)
         if reason:
             reply += "\nReason for last warn:\n{}".format(html.escape(reason))
@@ -93,6 +93,7 @@ def warn(user: User, chat: Chat, reason: str, message: Message, warner: User = N
 
 
 @run_async
+@user_admin_no_reply
 @bot_admin
 @loggable
 def button(bot: Bot, update: Update) -> str:
@@ -102,9 +103,6 @@ def button(bot: Bot, update: Update) -> str:
     if match:
         user_id = match.group(1)
         chat = update.effective_chat  # type: Optional[Chat]
-        if not is_user_admin(chat, int(user.id)):
-            query.answer(text="You are not authorized to remove this warn! Only administrators may remove warns.", show_alert=True)
-            return ""
         res = sql.remove_warn(user_id, chat.id)
         if res:
             update.effective_message.edit_text(
@@ -169,6 +167,33 @@ def reset_warns(bot: Bot, update: Update, args: List[str]) -> str:
                                                             mention_html(user.id, user.first_name),
                                                             mention_html(warned.id, warned.first_name),
                                                             warned.id)
+    else:
+        message.reply_text("No user has been designated!")
+    return ""
+    
+@run_async
+@user_admin
+@bot_admin
+@loggable
+def remove_warns(bot: Bot, update: Update, args: List[str]) -> str:
+    message = update.effective_message  # type: Optional[Message]
+    chat = update.effective_chat  # type: Optional[Chat]
+    user = update.effective_user  # type: Optional[User]
+
+    user_id = extract_user(message, args)
+
+    if user_id:
+        sql.remove_warn(user_id, chat.id)
+        message.reply_text("Last warn has been removed!")
+        warned = chat.get_member(user_id).user
+        return "<b>{}:</b>" \
+               "\n#UNWARN" \
+               "\n<b>• Admin:</b> {}" \
+               "\n<b>• User:</b> {}" \
+               "\n<b>• ID:</b> <code>{}</code>".format(html.escape(chat.title),
+                                                       mention_html(user.id, user.first_name),
+                                                       mention_html(warned.id, warned.first_name),
+                                                       warned.id)
     else:
         message.reply_text("No user has been designated!")
     return ""
@@ -397,23 +422,39 @@ def __chat_settings__(chat_id, user_id):
 
 
 __help__ = """
+Keep your members in check with warnings; stop them getting out of control!
+
  - /warns <userhandle>: get a user's number, and reason, of warnings.
  - /warnlist: list of all current warning filters
 
 *Admin only:*
  - /warn <userhandle>: warn a user. After 3 warns, the user will be banned from the group. Can also be used as a reply.
  - /resetwarn <userhandle>: reset the warnings for a user. Can also be used as a reply.
- - /addwarn <keyword> <reply message>: set a warning filter on a certain keyword. If you want your keyword to \
-be a sentence, encompass it with quotes, as such: `/addwarn "very angry" This is an angry user`. 
- - /nowarn <keyword>: stop a warning filter
- - /warnlimit <num>: set the warning limit
+ - /rmwarn <userhandle>: removes latest warn for a user. It also can be used as reply.
+ - /unwarn <userhandle>: same as /rmwarn
+ - /addwarn <keyword> <reply message>: set a warning filter on a certain keyword.
+ - /nowarn <keyword>: stop a warning filter.
+ - /warnlimit <num>: set the warning limit.
  - /strongwarn <on/yes/off/no>: If set to on, exceeding the warn limit will result in a ban. Else, will just kick.
+
+If you're looking for a way to automatically warn users when they say certain things, use the /addwarn command.
+
+An example of setting multiword warns filter:
+`- /addwarn "very angry" This is an angry user`
+
+This will automatically warn a user that triggers "very angry", with reason of 'This is an angry user'.
+
+An example of how to set a new multiword warning:
+`/warn @user Because warning is fun`
+
+This will warn the user called @user, with a reason of 'Because warning is fun'
 """
 
 __mod_name__ = "Warnings"
 
 WARN_HANDLER = CommandHandler("warn", warn_user, pass_args=True, filters=Filters.group)
 RESET_WARN_HANDLER = CommandHandler(["resetwarn", "resetwarns"], reset_warns, pass_args=True, filters=Filters.group)
+REMOVE_WARNS_HANDLER = CommandHandler(["rmwarn", "unwarn"], remove_warns, pass_args=True, filters=Filters.group)
 CALLBACK_QUERY_HANDLER = CallbackQueryHandler(button, pattern=r"rm_warn")
 MYWARNS_HANDLER = DisableAbleCommandHandler("warns", warns, pass_args=True, filters=Filters.group)
 ADD_WARN_HANDLER = CommandHandler("addwarn", add_warn_filter, filters=Filters.group)
@@ -426,6 +467,7 @@ WARN_STRENGTH_HANDLER = CommandHandler("strongwarn", set_warn_strength, pass_arg
 dispatcher.add_handler(WARN_HANDLER)
 dispatcher.add_handler(CALLBACK_QUERY_HANDLER)
 dispatcher.add_handler(RESET_WARN_HANDLER)
+dispatcher.add_handler(REMOVE_WARNS_HANDLER)
 dispatcher.add_handler(MYWARNS_HANDLER)
 dispatcher.add_handler(ADD_WARN_HANDLER)
 dispatcher.add_handler(RM_WARN_HANDLER)
