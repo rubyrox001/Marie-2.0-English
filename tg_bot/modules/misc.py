@@ -3,23 +3,26 @@ import json
 import random
 from datetime import datetime
 from typing import Optional, List
-
+import time
 import requests
 from telegram import Message, Chat, Update, Bot, MessageEntity
 from telegram import ParseMode
 from telegram.ext import CommandHandler, run_async, Filters
 from telegram.utils.helpers import escape_markdown, mention_html
-
-from tg_bot import dispatcher, OWNER_ID, SUDO_USERS, SUPPORT_USERS, WHITELIST_USERS, BAN_STICKER
+                                                                   
+from tg_bot import dispatcher, OWNER_ID, SUDO_USERS, SUPPORT_USERS, SECRET_SUDO_USERS, WHITELIST_USERS, BAN_STICKER
 from tg_bot.__main__ import STATS, USER_INFO
 from tg_bot.modules.disable import DisableAbleCommandHandler
 from tg_bot.modules.helper_funcs.extraction import extract_user
 from tg_bot.modules.helper_funcs.filters import CustomFilters
 
+from geopy.geocoders import Nominatim
+from telegram import Location
+
 RUN_STRINGS = (
-    "Where do you think you're going?",
-    "Huh? what? did they get away?",
-    "ZZzzZZzz... Huh? what? oh, just them again, nevermind.",
+    "You know you are not funnny shh go away",
+    "I think you want ban!",
+    "Go Run and Burn 69 Calories.",
     "Get back here!",
     "Not so fast...",
     "Look out for the wall!",
@@ -59,13 +62,33 @@ RUN_STRINGS = (
     "It's funny, because no one cares.",
     "Ah, what a waste. I liked that one.",
     "Frankly, my dear, I don't give a damn.",
-    "My milkshake brings all the boys to yard... So run faster!",
-    "You can't HANDLE the truth!",
-    "A long time ago, in a galaxy far far away... Someone would've cared about that. Not anymore though.",
-    "Hey, look at them! They're running from the inevitable banhammer... Cute.",
-    "Han shot first. So will I.",
-    "What are you running after, a white rabbit?",
-    "As The Doctor would say... RUN!",
+    "Kthnksbye!",
+    "I think you should go home or better a mental asylum.",
+    "Command not found. Just like your brain.",
+    "Do you realize you are making a fool of yourself? Apparently not.",
+    "Bot rule 544 section 9 prevents me from replying to stupid humans like you.",
+    "Sorry, we do not sell brains.",
+    "Believe me you are not normal.",
+    "I bet your brain feels as good as new, seeing that you never use it.",
+    "If I wanted to kill myself I'd climb your ego and jump to your IQ.",
+    "Zombies eat brains... you're safe.",
+    "You didn't evolve from apes, they evolved from you.",
+    "Come back and talk to me when your I.Q. exceeds your age.",
+    "I'm not saying you're stupid, I'm just saying you've got bad luck when it comes to thinking.",
+    "What language are you speaking? Cause it sounds like bullshit.",
+    "Stupidity is not a crime so you are free to go.",
+    "You are proof that evolution CAN go in reverse.",
+    "I would ask you how old you are but I know you can't count that high.",
+    "As an outsider, what do you think of the human race?",
+    "Brains aren't everything. In your case they're nothing.",
+    "Ordinarily people live and learn. You just live.",
+    "I don't know what makes you so stupid, but it really works.",
+    "Keep talking, someday you'll say something intelligent! (I doubt it though)",
+    "Shock me, say something intelligent.",
+    "Your IQ's lower than your shoe size.",
+    "Alas! Your neurotransmitters are no more working.",
+    "Everyone has the right to be stupid but you are abusing the privilege.",
+    "I'm sorry I hurt your feelings when I called you stupid. I thought you already knew that.",
 )
 
 SLAP_TEMPLATES = (
@@ -247,7 +270,7 @@ def info(bot: Bot, update: Update, args: List[str]):
     text += "\nPermanent user link: {}".format(mention_html(user.id, "link"))
 
     if user.id == OWNER_ID:
-        text += "\n\nThis person is my owner - I would never do anything against them!"
+        text += "\n\nThis person is my owner - So don't Mess with him!"
     else:
         if user.id in SUDO_USERS:
             text += "\nThis person is one of my sudo users! " \
@@ -271,9 +294,13 @@ def info(bot: Bot, update: Update, args: List[str]):
 
 @run_async
 def get_time(bot: Bot, update: Update, args: List[str]):
+    if len(args) == 0:
+        update.effective_message.reply_text("Write a location to check the time.")
+        return
+
     location = " ".join(args)
     if location.lower() == bot.first_name.lower():
-        update.effective_message.reply_text("Its always banhammer time for me!")
+        update.effective_message.reply_text("Why so serious?")
         bot.send_sticker(update.effective_chat.id, BAN_STICKER)
         return
 
@@ -321,21 +348,12 @@ def echo(bot: Bot, update: Update):
         message.reply_text(args[1], quote=False)
     message.delete()
 
-
-@run_async
-def gdpr(bot: Bot, update: Update):
-    update.effective_message.reply_text("Deleting identifiable data...")
-    for mod in GDPR:
-        mod.__gdpr__(update.effective_user.id)
-
-    update.effective_message.reply_text("Your personal data has been deleted.\n\nNote that this will not unban "
-                                        "you from any chats, as that is telegram data, not Marie data. "
-                                        "Flooding, warns, and gbans are also preserved, as of "
-                                        "[this](https://ico.org.uk/for-organisations/guide-to-the-general-data-protection-regulation-gdpr/individual-rights/right-to-erasure/), "
-                                        "which clearly states that the right to erasure does not apply "
-                                        "\"for the performance of a task carried out in the public interest\", as is "
-                                        "the case for the aforementioned pieces of data.",
-                                        parse_mode=ParseMode.MARKDOWN)
+def ping(bot: Bot, update: Update):
+    start_time = time.time()
+    requests.get('https://api.telegram.org')
+    end_time = time.time()
+    ping_time = float(end_time - start_time)*1000
+    update.effective_message.reply_text(" Ping speed was : {}ms".format(ping_time))
 
 
 MARKDOWN_HELP = """
@@ -374,44 +392,26 @@ def markdown_help(bot: Bot, update: Update):
 
 @run_async
 def stats(bot: Bot, update: Update):
-    update.effective_message.reply_text("Current stats:\n" + "\n".join([mod.__stats__() for mod in STATS]))
+    update.effective_message.reply_text("Current stats Lol:\n" + "\n".join([mod.__stats__() for mod in STATS]))
 
-@run_async
-def stickerid(bot: Bot, update: Update):
-    msg = update.effective_message
-    if msg.reply_to_message and msg.reply_to_message.sticker:
-        update.effective_message.reply_text("Hello " +
-                                            "[{}](tg://user?id={})".format(msg.from_user.first_name, msg.from_user.id)
-                                            + ", The sticker id you are replying is :\n```" + 
-                                            escape_markdown(msg.reply_to_message.sticker.file_id) + "```",
-                                            parse_mode=ParseMode.MARKDOWN)
-    else:
-        update.effective_message.reply_text("Hello " + "[{}](tg://user?id={})".format(msg.from_user.first_name,
-                                            msg.from_user.id) + ", Please reply to sticker message to get id sticker",
-                                            parse_mode=ParseMode.MARKDOWN)
-@run_async
-def getsticker(bot: Bot, update: Update):
-    msg = update.effective_message
-    chat_id = update.effective_chat.id
-    if msg.reply_to_message and msg.reply_to_message.sticker:
-        bot.sendChatAction(chat_id, "typing")
-        update.effective_message.reply_text("Hello " + "[{}](tg://user?id={})".format(msg.from_user.first_name,
-                                            msg.from_user.id) + ", Please check the file you requested below."
-                                            "\nPlease use this feature wisely!",
-                                            parse_mode=ParseMode.MARKDOWN)
-        bot.sendChatAction(chat_id, "upload_document")
-        file_id = msg.reply_to_message.sticker.file_id
-        newFile = bot.get_file(file_id)
-        newFile.download('sticker.png')
-        bot.sendDocument(chat_id, document=open('sticker.png', 'rb'))
-        bot.sendChatAction(chat_id, "upload_photo")
-        bot.send_photo(chat_id, photo=open('sticker.png', 'rb'))
-        
-    else:
-        bot.sendChatAction(chat_id, "typing")
-        update.effective_message.reply_text("Hello " + "[{}](tg://user?id={})".format(msg.from_user.first_name,
-                                            msg.from_user.id) + ", Please reply to sticker message to get sticker image",
-                                            parse_mode=ParseMode.MARKDOWN)
+
+def gps(bot: Bot, update: Update, args: List[str]):
+    message = update.effective_message
+    if len(args) == 0:
+        update.effective_message.reply_text("That was a funny joke, but no really, put in a location")
+    try:
+        geolocator = Nominatim(user_agent="SkittBot")
+        location = " ".join(args)
+        geoloc = geolocator.geocode(location)  
+        chat_id = update.effective_chat.id
+        lon = geoloc.longitude
+        lat = geoloc.latitude
+        the_loc = Location(lon, lat) 
+        gm = "https://www.google.com/maps/search/{},{}".format(lat,lon)
+        bot.send_location(chat_id, location=the_loc)
+        update.message.reply_text("Open with: [Google Maps]({})".format(gm), parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+    except AttributeError:
+        update.message.reply_text("I can't find that")
 
 # /ip is for private use
 __help__ = """
@@ -420,10 +420,8 @@ __help__ = """
  - /slap: slap a user, or get slapped if not a reply.
  - /time <place>: gives the local time at the given place.
  - /info: get information about a user.
- - /gdpr: deletes your information from the bot's database. Private chats only.
+
  - /markdownhelp: quick summary of how markdown works in telegram - can only be called in private chats.
- - /stickerid: reply to a sticker and get sticker id of that.
- - /getsticker: reply to a sticker and get that sticker as .png and image. 
 """
 
 __mod_name__ = "Misc"
@@ -436,18 +434,15 @@ TIME_HANDLER = CommandHandler("time", get_time, pass_args=True)
 RUNS_HANDLER = DisableAbleCommandHandler("runs", runs)
 SLAP_HANDLER = DisableAbleCommandHandler("slap", slap, pass_args=True)
 INFO_HANDLER = DisableAbleCommandHandler("info", info, pass_args=True)
-
-ECHO_HANDLER = CommandHandler("echo", echo, filters=Filters.user(OWNER_ID))
+PING_HANDLER = DisableAbleCommandHandler("ping", ping)
+ECHO_HANDLER = CommandHandler("echo", echo, filters=CustomFilters.sudo_filter | CustomFilters.secret_sudo_filter)
 MD_HELP_HANDLER = CommandHandler("markdownhelp", markdown_help, filters=Filters.private)
 
-STATS_HANDLER = CommandHandler("stats", stats, filters=CustomFilters.sudo_filter)
-GDPR_HANDLER = CommandHandler("gdpr", gdpr, filters=Filters.private)
-
-STICKERID_HANDLER = DisableAbleCommandHandler("stickerid", stickerid)
-GETSTICKER_HANDLER = DisableAbleCommandHandler("getsticker", getsticker)
-
+STATS_HANDLER = CommandHandler("stats", stats, filters=CustomFilters.sudo_filter | CustomFilters.secret_sudo_filter)
+GPS_HANDLER = DisableAbleCommandHandler("gps", gps, pass_args=True)
 
 dispatcher.add_handler(ID_HANDLER)
+dispatcher.add_handler(PING_HANDLER)
 dispatcher.add_handler(IP_HANDLER)
 dispatcher.add_handler(TIME_HANDLER)
 dispatcher.add_handler(RUNS_HANDLER)
@@ -456,6 +451,4 @@ dispatcher.add_handler(INFO_HANDLER)
 dispatcher.add_handler(ECHO_HANDLER)
 dispatcher.add_handler(MD_HELP_HANDLER)
 dispatcher.add_handler(STATS_HANDLER)
-dispatcher.add_handler(GDPR_HANDLER)
-dispatcher.add_handler(STICKERID_HANDLER)
-dispatcher.add_handler(GETSTICKER_HANDLER)
+dispatcher.add_handler(GPS_HANDLER)
