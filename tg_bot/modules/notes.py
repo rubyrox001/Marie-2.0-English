@@ -15,7 +15,6 @@ from tg_bot.modules.disable import DisableAbleCommandHandler
 from tg_bot.modules.helper_funcs.chat_status import user_admin
 from tg_bot.modules.helper_funcs.misc import build_keyboard, revert_buttons
 from tg_bot.modules.helper_funcs.msg_types import get_note_type
-from tg_bot.modules.sql.connection_sql import get_connected_chat
 
 from tg_bot.modules.connection import connected
 
@@ -35,10 +34,7 @@ ENUM_FUNC_MAP = {
 
 # Do not async
 def get(bot, update, notename, show_none=True, no_format=False):
-    if not get_connected_chat(update.effective_message.from_user.id):
-        chat_id = update.effective_chat.id
-    else:
-        chat_id = get_connected_chat(update.effective_message.from_user.id).chat_id
+    chat_id = update.effective_chat.id
     chat = update.effective_chat  # type: Optional[Chat]
     user = update.effective_user  # type: Optional[User]
     conn = connected(bot, update, chat, user.id, need_admin=False)
@@ -48,6 +44,7 @@ def get(bot, update, notename, show_none=True, no_format=False):
     else:
         chat_id = update.effective_chat.id
         send_id = chat_id
+
     note = sql.get_note(chat_id, notename)
     message = update.effective_message  # type: Optional[Message]
 
@@ -86,26 +83,28 @@ def get(bot, update, notename, show_none=True, no_format=False):
             keyb = []
             parseMode = ParseMode.MARKDOWN
             buttons = sql.get_buttons(chat_id, notename)
+            should_preview_disabled = True
             if no_format:
                 parseMode = None
                 text += revert_buttons(buttons)
             else:
                 keyb = build_keyboard(buttons)
+                if "telegra.ph" in text or "youtu.be" in text:
+                    should_preview_disabled = False
 
             keyboard = InlineKeyboardMarkup(keyb)
 
             try:
                 if note.msgtype in (sql.Types.BUTTON_TEXT, sql.Types.TEXT):
-                    bot.send_message(send_id, text, reply_to_message_id=reply_id,
-                                     parse_mode=parseMode, disable_web_page_preview=True,
+                    bot.send_message(chat_id, text, reply_to_message_id=reply_id,
+                                     parse_mode=parseMode, disable_web_page_preview=should_preview_disabled,
                                      reply_markup=keyboard)
                 else:
-                    ENUM_FUNC_MAP[note.msgtype](send_id, note.file, caption=text, reply_to_message_id=reply_id,
-                                                parse_mode=parseMode, disable_web_page_preview=True,
+                    ENUM_FUNC_MAP[note.msgtype](chat_id, note.file, caption=text, reply_to_message_id=reply_id,
+                                                parse_mode=parseMode, disable_web_page_preview=should_preview_disabled,
                                                 reply_markup=keyboard)
 
             except BadRequest as excp:
-                print(excp.message)
                 if excp.message == "Entity_mention_user_invalid":
                     message.reply_text("Looks like you tried to mention someone I've never seen before. If you really "
                                        "want to mention them, forward one of their messages to me, and I'll be able "
@@ -116,8 +115,8 @@ def get(bot, update, notename, show_none=True, no_format=False):
                                        "the meantime, I'll remove it from your notes list.")
                     sql.rm_note(chat_id, notename)
                 else:
-                    message.reply_text("This note could not be sent, as it is incorrectly formatted. "
-                                       "Please save it again with proper formatting. ")
+                    message.reply_text("This note could not be sent, as it is incorrectly formatted. Ask in "
+                                       "@MarieSupport if you can't figure out why!")
                     LOGGER.exception("Could not parse message #%s in chat %s", notename, str(chat_id))
                     LOGGER.warning("Message was: %s", str(note.value))
         return
@@ -166,15 +165,14 @@ def save(bot: Bot, update: Update):
     if data_type is None:
         msg.reply_text("Dude, there's no note")
         return
-    
+
     if len(text.strip()) == 0:
         text = note_name
-        
+
     sql.add_note_to_db(chat_id, note_name, text, data_type, buttons=buttons, file=content)
 
     msg.reply_text(
-        "Ok, added `{note_name}` in *{chat_name}*.\nGet it with `/get {note_name}`, or `#{note_name}`".format(note_name=note_name, 
-chat_name=chat_name), parse_mode=ParseMode.MARKDOWN)
+        "OK, Added {note_name} in *{chat_name}*.\nGet it with /get {note_name}, or #{note_name}".format(note_name=note_name, chat_name=chat_name), parse_mode=ParseMode.MARKDOWN)
 
     if msg.reply_to_message and msg.reply_to_message.from_user.is_bot:
         if text:
@@ -205,18 +203,19 @@ def clear(bot: Bot, update: Update, args: List[str]):
             chat_name = "local notes"
         else:
             chat_name = chat.title
-    
+
     if len(args) >= 1:
         notename = args[0]
 
         if sql.rm_note(chat_id, notename):
-            update.effective_message.reply_text("Successfully removed note from *{}*.".format(chat_name), parse_mode=ParseMode.MARKDOWN)
+            update.effective_message.reply_text("Successfully removed note.")
         else:
             update.effective_message.reply_text("That's not a note in my database!")
 
 
 @run_async
 def list_notes(bot: Bot, update: Update):
+    chat_id = update.effective_chat.id
     chat = update.effective_chat  # type: Optional[Chat]
     user = update.effective_user  # type: Optional[User]
     conn = connected(bot, update, chat, user.id, need_admin=False)
@@ -236,17 +235,17 @@ def list_notes(bot: Bot, update: Update):
     note_list = sql.get_all_chat_notes(chat_id)
 
     for note in note_list:
-        note_name = " • `{}`\n".format(note.name)
+        note_name = escape_markdown(" - {}\n".format(note.name))
         if len(msg) + len(note_name) > MAX_MESSAGE_LENGTH:
             update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
             msg = ""
         msg += note_name
 
-    if not note_list:
+    if msg == "*Notes in chat:*\n":
         update.effective_message.reply_text("No notes in this chat!")
 
     elif len(msg) != 0:
-        update.effective_message.reply_text(msg.format(chat_name), parse_mode=ParseMode.MARKDOWN)
+        update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
 
 
 def __import_data__(chat_id, data):
