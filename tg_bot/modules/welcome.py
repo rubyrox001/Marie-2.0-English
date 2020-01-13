@@ -1,26 +1,19 @@
-import html, time
-import re
+import html
 from typing import Optional, List
 
-import tg_bot.modules.helper_funcs.cas_api as cas
-
-from telegram import Message, Chat, Update, Bot, User, CallbackQuery, ChatMember, ParseMode, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Message, Chat, Update, Bot, User
+from telegram import ParseMode, InlineKeyboardMarkup
 from telegram.error import BadRequest
-from telegram.ext import MessageHandler, Filters, CommandHandler, run_async, CallbackQueryHandler
+from telegram.ext import MessageHandler, Filters, CommandHandler, run_async
 from telegram.utils.helpers import mention_markdown, mention_html, escape_markdown
 
 import tg_bot.modules.sql.welcome_sql as sql
-import tg_bot.modules.sql.global_bans_sql as gbansql
-import tg_bot.modules.sql.users_sql as userssql
-
-from tg_bot import dispatcher, OWNER_ID, LOGGER, SUDO_USERS, SUPPORT_USERS
-from tg_bot.modules.helper_funcs.chat_status import user_admin, can_delete, is_user_ban_protected
-from tg_bot.modules.helper_funcs.misc import build_keyboard, revert_buttons, send_to_list
+from tg_bot import dispatcher, OWNER_ID, LOGGER
+from tg_bot.modules.helper_funcs.chat_status import user_admin, can_delete
+from tg_bot.modules.helper_funcs.misc import build_keyboard, revert_buttons
 from tg_bot.modules.helper_funcs.msg_types import get_welcome_type
-from tg_bot.modules.helper_funcs.extraction import extract_user
-from tg_bot.modules.disable import DisableAbleCommandHandler
-from tg_bot.modules.helper_funcs.filters import CustomFilters
-from tg_bot.modules.helper_funcs.string_handling import markdown_parser, escape_invalid_curly_brackets
+from tg_bot.modules.helper_funcs.string_handling import markdown_parser, \
+    escape_invalid_curly_brackets
 from tg_bot.modules.log_channel import loggable
 
 VALID_WELCOME_FORMATTERS = ['first', 'last', 'fullname', 'username', 'id', 'count', 'chatname', 'mention']
@@ -54,9 +47,7 @@ def send(update, message, keyboard, backup_message):
                                                                   "curly brackets. Please update"),
                                                   parse_mode=ParseMode.MARKDOWN)
     except BadRequest as excp:
-        if excp.message == "Have no rights to send a message":
-            return
-        elif excp.message == "Button_url_invalid":
+        if excp.message == "Button_url_invalid":
             msg = update.effective_message.reply_text(markdown_parser(backup_message +
                                                                       "\nNote: the current message has an invalid url "
                                                                       "in one of its buttons. Please update."),
@@ -76,50 +67,67 @@ def send(update, message, keyboard, backup_message):
             LOGGER.warning(keyboard)
             LOGGER.exception("Could not parse! got invalid url host errors")
         else:
-            if update.effective_message:
-                msg = update.effective_message.reply_text(markdown_parser(backup_message +
-                                                                          "\nNote: An error occured when sending the "
-                                                                          "custom message. Please update."),
-                                                          parse_mode=ParseMode.MARKDOWN)
+            msg = update.effective_message.reply_text(markdown_parser(backup_message +
+                                                                      "\nNote: An error occured when sending the "
+                                                                      "custom message. Please update."),
+                                                      parse_mode=ParseMode.MARKDOWN)
             LOGGER.exception()
 
     return msg
 
+
+@run_async
+@user_admin
+@loggable
+def del_joined(bot: Bot, update: Update, args: List[str]) -> str:
+    chat = update.effective_chat  # type: Optional[Chat]
+    user = update.effective_user  # type: Optional[User]
+
+    if not args:
+        del_pref = sql.get_del_pref(chat.id)
+        if del_pref:
+            update.effective_message.reply_text("I should be deleting `user` joined the chat messages now.")
+        else:
+            update.effective_message.reply_text("I'm currently not deleting old joined messages!")
+        return ""
+
+    if args[0].lower() in ("on", "yes"):
+        sql.set_del_joined(str(chat.id), True)
+        update.effective_message.reply_text("I'll try to delete old joined messages!")
+        return "<b>{}:</b>" \
+               "\n#CLEAN_SERVICE_MESSAGE" \
+               "\n<b>Admin:</b> {}" \
+               "\nHas toggled join deletion to <code>ON</code>.".format(html.escape(chat.title),
+                                                                         mention_html(user.id, user.first_name))
+    elif args[0].lower() in ("off", "no"):
+        sql.set_del_joined(str(chat.id), False)
+        update.effective_message.reply_text("I won't delete old joined messages.")
+        return "<b>{}:</b>" \
+               "\n#CLEAN_SERVICE_MESSAGE" \
+               "\n<b>Admin:</b> {}" \
+               "\nHas toggled joined deletion to <code>OFF</code>.".format(html.escape(chat.title),
+                                                                          mention_html(user.id, user.first_name))
+    else:
+        # idek what you're writing, say yes or no
+        update.effective_message.reply_text("I understand 'on/yes' or 'off/no' only!")
+        return ""
+
+
+@run_async
+def delete_join(bot: Bot, update: Update):
+    chat = update.effective_chat  # type: Optional[Chat]
+    join = update.effective_message.new_chat_members
+    if can_delete(chat, bot.id):
+        del_join = sql.get_del_pref(chat.id)
+        if del_join:
+            update.message.delete()
+
 @run_async
 def new_member(bot: Bot, update: Update):
     chat = update.effective_chat  # type: Optional[Chat]
-    user = update.effective_user  # type: Optional[User]
-    msg = update.effective_message # type: Optional[Message]
-    chat_name = chat.title or chat.first or chat.username # type: Optional:[chat name]
+
     should_welc, cust_welcome, welc_type = sql.get_welc_pref(chat.id)
-    welc_mutes = sql.welcome_mutes(chat.id)
-    casPrefs = sql.get_cas_status(str(chat.id)) #check if enabled, obviously
-    autoban = sql.get_cas_autoban(str(chat.id))
-    chatbanned = sql.isBanned(str(chat.id))
-    defense = sql.getDefenseStatus(str(chat.id))
-    if chatbanned:
-        bot.leave_chat(int(chat.id))
-    elif casPrefs and not autoban and cas.banchecker(user.id):
-        bot.restrict_chat_member(chat.id, user.id, 
-                                         can_send_messages=False,
-                                         can_send_media_messages=False, 
-                                         can_send_other_messages=False, 
-                                         can_add_web_page_previews=False)
-        msg.reply_text("Warning! This user is CAS Banned. I have muted them to avoid spam. Ban is adviced.")
-        isUserGbanned = gbansql.is_user_gbanned(user.id)
-        report = "CAS Banned user detected: <code>{}</code>\nGlobally Banned: {}".format(user.id, isUserGbanned)
-        send_to_list(bot, SUDO_USERS + SUPPORT_USERS, report, html=True)
-        if defense:
-            bot.unban_chat_member(chat.id, user.id)
-    elif casPrefs and autoban and cas.banchecker(user.id):
-        chat.kick_member(user.id)
-        msg.reply_text("CAS banned user detected! User has been automatically banned!")
-        isUserGbanned = gbansql.is_user_gbanned(user.id)
-        report = "CAS Banned user detected: <code>{}</code>\nGlobally Banned: {}".format(user.id, isUserGbanned)
-        send_to_list(bot, SUDO_USERS + SUPPORT_USERS, report, html=True)
-    elif defense:
-        bot.unban_chat_member(chat.id, user.id)
-    elif should_welc:
+    if should_welc:
         sent = None
         new_members = update.effective_message.new_chat_members
         for new_mem in new_members:
@@ -127,14 +135,10 @@ def new_member(bot: Bot, update: Update):
             if new_mem.id == OWNER_ID:
                 update.effective_message.reply_text("Master is in the houseeee, let's get this party started!")
                 continue
-            # Give the sudos/support a special welcome too
-            elif new_mem.id in SUDO_USERS or new_mem.id in SUPPORT_USERS:
-                update.effective_message.reply_text("Welcome to the Dark Side! May the force be with you...")
-                continue
-            # Make bot greet admins
+
+            # Don't welcome yourself
             elif new_mem.id == bot.id:
-                update.effective_message.reply_text("Hey {}, I'm {}! Thank you for adding me to {}" 
-                " and be sure to check /help in PM for more commands and tricks!".format(user.first_name, bot.first_name, chat_name))
+                continue
 
             else:
                 # If welcome message is media, send with appropriate function
@@ -150,7 +154,7 @@ def new_member(bot: Bot, update: Update):
                     else:
                         fullname = first_name
                     count = chat.get_members_count()
-                    mention = mention_markdown(new_mem.id, first_name)
+                    mention = mention_markdown(new_mem.id, escape_markdown(first_name))
                     if new_mem.username:
                         username = "@" + escape_markdown(new_mem.username)
                     else:
@@ -171,22 +175,6 @@ def new_member(bot: Bot, update: Update):
 
                 sent = send(update, res, keyboard,
                             sql.DEFAULT_WELCOME.format(first=first_name))  # type: Optional[Message]
-            
-                
-                #Sudo user exception from mutes:
-                if is_user_ban_protected(chat, new_mem.id, chat.get_member(new_mem.id)):
-                    continue
-
-                #Safe mode
-                if welc_mutes == "on":
-                    msg.reply_text("Click the button below to prove you're human",
-                         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="Yes, I'm a human", 
-                         callback_data="userverify_({})".format(new_mem.id))]]))
-                    bot.restrict_chat_member(chat.id, new_mem.id, 
-                                             can_send_messages=False, 
-                                             can_send_media_messages=False, 
-                                             can_send_other_messages=False, 
-                                             can_add_web_page_previews=False)
             delete_join(bot, update)
 
         prev_welc = sql.get_clean_pref(chat.id)
@@ -198,6 +186,7 @@ def new_member(bot: Bot, update: Update):
 
             if sent:
                 sql.set_clean_welcome(chat.id, sent.message_id)
+
 
 @run_async
 def left_member(bot: Bot, update: Update):
@@ -248,6 +237,8 @@ def left_member(bot: Bot, update: Update):
             keyboard = InlineKeyboardMarkup(keyb)
 
             send(update, res, keyboard, sql.DEFAULT_GOODBYE)
+            delete_join(bot, update)
+
 
 @run_async
 @user_admin
@@ -294,6 +285,7 @@ def welcome(bot: Bot, update: Update, args: List[str]):
             # idek what you're writing, say yes or no
             update.effective_message.reply_text("I understand 'on/yes' or 'off/no' only!")
 
+
 @run_async
 @user_admin
 def goodbye(bot: Bot, update: Update, args: List[str]):
@@ -339,6 +331,7 @@ def goodbye(bot: Bot, update: Update, args: List[str]):
             # idek what you're writing, say yes or no
             update.effective_message.reply_text("I understand 'on/yes' or 'off/no' only!")
 
+
 @run_async
 @user_admin
 @loggable
@@ -362,6 +355,7 @@ def set_welcome(bot: Bot, update: Update) -> str:
            "\nSet the welcome message.".format(html.escape(chat.title),
                                                mention_html(user.id, user.first_name))
 
+
 @run_async
 @user_admin
 @loggable
@@ -375,6 +369,7 @@ def reset_welcome(bot: Bot, update: Update) -> str:
            "\n<b>Admin:</b> {}" \
            "\nReset the welcome message to default.".format(html.escape(chat.title),
                                                             mention_html(user.id, user.first_name))
+
 
 @run_async
 @user_admin
@@ -397,6 +392,7 @@ def set_goodbye(bot: Bot, update: Update) -> str:
            "\nSet the goodbye message.".format(html.escape(chat.title),
                                                mention_html(user.id, user.first_name))
 
+
 @run_async
 @user_admin
 @loggable
@@ -411,40 +407,6 @@ def reset_goodbye(bot: Bot, update: Update) -> str:
            "\nReset the goodbye message.".format(html.escape(chat.title),
                                                  mention_html(user.id, user.first_name))
 
-@run_async
-@user_admin
-@loggable
-def safemode(bot: Bot, update: Update, args: List[str]) -> str:
-    chat = update.effective_chat  # type: Optional[Chat]
-    user = update.effective_user  # type: Optional[User]
-    msg = update.effective_message # type: Optional[Message]
-    
-    if len(args) >= 1:
-        if  args[0].lower() in ("off", "no"):
-            sql.set_welcome_mutes(chat.id, False)
-            msg.reply_text("I will no longer mute people on joining!")
-            return "<b>{}:</b>" \
-                   "\n#SAFE_MODE" \
-                   "\n<b>• Admin:</b> {}" \
-                   "\nHas toggled welcome mute to <b>OFF</b>.".format(html.escape(chat.title),
-                                                                      mention_html(user.id, user.first_name))
-        elif args[0].lower() in ("on", "yes"):
-             sql.set_welcome_mutes(chat.id, "on")
-             msg.reply_text("I will now mute people when they join and"
-                           " click on the button to be unmuted.")
-             return "<b>{}:</b>" \
-                    "\n#SAFE_MODE" \
-                    "\n<b>• Admin:</b> {}" \
-                    "\nHas toggled welcome mute to <b>ON</b>.".format(html.escape(chat.title),
-                                                                          mention_html(user.id, user.first_name))
-        else:
-            msg.reply_text("Please enter `on`/`off`!", parse_mode=ParseMode.MARKDOWN)
-            return ""
-    else:
-        curr_setting = sql.welcome_mutes(chat.id)
-        reply = "\n Give me a setting! Choose one of `on`/`yes` or `off`/`no` only! \nCurrent setting: `{}`"
-        msg.reply_text(reply.format(curr_setting), parse_mode=ParseMode.MARKDOWN)
-        return ""
 
 @run_async
 @user_admin
@@ -482,192 +444,6 @@ def clean_welcome(bot: Bot, update: Update, args: List[str]) -> str:
         update.effective_message.reply_text("I understand 'on/yes' or 'off/no' only!")
         return ""
 
-@run_async
-@user_admin
-@loggable
-def del_joined(bot: Bot, update: Update, args: List[str]) -> str:
-    chat = update.effective_chat  # type: Optional[Chat]
-    user = update.effective_user  # type: Optional[User]
-
-    if not args:
-        del_pref = sql.get_del_pref(chat.id)
-        if del_pref:
-            update.effective_message.reply_text("I should be deleting `user` joined the chat messages now.")
-        else:
-            update.effective_message.reply_text("I'm currently not deleting old joined messages!")
-        return ""
-
-    if args[0].lower() in ("on", "yes"):
-        sql.set_del_joined(str(chat.id), True)
-        update.effective_message.reply_text("I'll try to delete old joined messages!")
-        return "<b>{}:</b>" \
-               "\n#CLEAN_WELCOME" \
-               "\n<b>Admin:</b> {}" \
-               "\nHas toggled clean welcomes to <code>ON</code>.".format(html.escape(chat.title),
-                                                                         mention_html(user.id, user.first_name))
-    elif args[0].lower() in ("off", "no"):
-        sql.set_del_joined(str(chat.id), False)
-        update.effective_message.reply_text("I won't delete old joined messages.")
-        return "<b>{}:</b>" \
-               "\n#CLEAN_WELCOME" \
-               "\n<b>Admin:</b> {}" \
-               "\nHas toggled joined deletion to <code>OFF</code>.".format(html.escape(chat.title),
-                                                                          mention_html(user.id, user.first_name))
-    else:
-        # idek what you're writing, say yes or no
-        update.effective_message.reply_text("I understand 'on/yes' or 'off/no' only!")
-        return ""
-
-@run_async
-def delete_join(bot: Bot, update: Update):
-    chat = update.effective_chat  # type: Optional[Chat]
-    join = update.effective_message.new_chat_members
-    if can_delete(chat, bot.id):
-        del_join = sql.get_del_pref(chat.id)
-        if del_join and update.message:
-            update.message.delete()
-            
-@run_async
-def user_button(bot: Bot, update: Update):
-    chat = update.effective_chat  # type: Optional[Chat]
-    user = update.effective_user  # type: Optional[User]
-    query = update.callback_query  # type: Optional[CallbackQuery]
-    match = re.match(r"userverify_\((.+?)\)", query.data)
-    message = update.effective_message  # type: Optional[Message]
-    join_user =  int(match.group(1))
-    
-    if join_user == user.id:
-        query.answer(text="Yup, you're very human, you have now the right to speak!")
-        bot.restrict_chat_member(chat.id, user.id, can_send_messages=True, 
-                                                   can_send_media_messages=False, 
-                                                   can_send_other_messages=False, 
-                                                   can_add_web_page_previews=False,
-                                                   until_date=(int(time.time() + 24 * 60 * 60)))
-        bot.deleteMessage(chat.id, message.message_id)
-    else:
-        query.answer(text="Fuck off, this button is not for you!")
-
-@run_async
-@user_admin
-def setcas(bot: Bot, update: Update):
-    chat = update.effective_chat
-    msg = update.effective_message
-    split_msg = msg.text.split(' ')
-    if len(split_msg)!= 2:
-        msg.reply_text("Invalid arguments!")
-        return
-    param = split_msg[1]
-    if param == "on" or param == "true":
-        sql.set_cas_status(chat.id, True)
-        msg.reply_text("Successfully updated configuration.")
-        return
-    elif param == "off" or param == "false":
-        sql.set_cas_status(chat.id, False)
-        msg.reply_text("Successfully updated configuration.")
-        return
-    else:
-        msg.reply_text("Invalid status to set!") #on or off ffs
-        return
-
-@run_async
-@user_admin
-def setban(bot: Bot, update: Update):
-    chat = update.effective_chat
-    msg = update.effective_message
-    split_msg = msg.text.split(' ')
-    if len(split_msg)!= 2:
-        msg.reply_text("Invalid arguments!")
-        return
-    param = split_msg[1]
-    if param == "on" or param == "true":
-        sql.set_cas_autoban(chat.id, True)
-        msg.reply_text("Successfully updated configuration.")
-        return
-    elif param == "off" or param == "false":
-        sql.set_cas_autoban(chat.id, False)
-        msg.reply_text("Successfully updated configuration.")
-        return
-    else:
-        msg.reply_text("Invalid autoban definition to set!") #on or off ffs
-        return
-
-@run_async
-@user_admin
-def get_current_setting(bot: Bot, update: Update):
-    chat = update.effective_chat
-    msg = update.effective_message
-    stats = sql.get_cas_status(chat.id)
-    autoban = sql.get_cas_autoban(chat.id)
-    rtext = "<b>CAS Preferences</b>\n\nCAS Checking: {}\nAutoban: {}".format(stats, autoban)
-    msg.reply_text(rtext, parse_mode=ParseMode.HTML)
-    return
-
-@run_async
-def get_version(bot: Bot, update: Update):
-    msg = update.effective_message
-    ver = cas.vercheck()
-    msg.reply_text("CAS API version: "+ver)
-    return
-
-@run_async
-def caschecker(bot: Bot, update: Update, args: List[str]):
-    #/info logic
-    msg = update.effective_message  # type: Optional[Message]
-    user_id = extract_user(update.effective_message, args)
-    if user_id and int(user_id) != 777000:
-        user = bot.get_chat(user_id)
-    elif user_id and int(user_id) == 777000:
-        msg.reply_text("This is Telegram. Unless you manually entered this reserved account's ID, it is likely a broadcast from a linked channel.")
-        return
-    elif not msg.reply_to_message and not args:
-        user = msg.from_user
-    elif not msg.reply_to_message and (not args or (
-            len(args) >= 1 and not args[0].startswith("@") and not args[0].isdigit() and not msg.parse_entities(
-        [MessageEntity.TEXT_MENTION]))):
-        msg.reply_text("I can't extract a user from this.")
-        return
-    else:
-        return
-
-    text = "<b>CAS Check</b>:" \
-           "\nID: <code>{}</code>" \
-           "\nFirst Name: {}".format(user.id, html.escape(user.first_name))
-    if user.last_name:
-        text += "\nLast Name: {}".format(html.escape(user.last_name))
-    if user.username:
-        text += "\nUsername: @{}".format(html.escape(user.username))
-    text += "\n\nCAS Banned: "
-    result = cas.banchecker(user.id)
-    text += str(result)
-    if result:
-        parsing = cas.offenses(user.id)
-        if parsing:
-            text += "\nTotal of Offenses: "
-            text += str(parsing)
-        parsing = cas.timeadded(user.id)
-        if parsing:
-            parseArray=str(parsing).split(", ")
-            text += "\nDay added: "
-            text += str(parseArray[1])
-            text += "\nTime added: "
-            text += str(parseArray[0])
-            text += "\n\nAll times are in UTC"
-    update.effective_message.reply_text(text, parse_mode=ParseMode.HTML)
-
-#this sends direct request to combot server. Will return true if user is banned, false if
-#id invalid or user not banned
-@run_async
-def casquery(bot: Bot, update: Update, args: List[str]):
-    msg = update.effective_message  # type: Optional[Message]
-    try:
-        user_id = msg.text.split(' ')[1]
-    except:
-        msg.reply_text("There was a problem parsing the query.")
-        return
-    text = "Your query returned: "
-    result = cas.banchecker(user_id)
-    text += str(result)
-    msg.reply_text(text)        
 
 WELC_HELP_TXT = "Your group's welcome/goodbye messages can be personalised in multiple ways. If you want the messages" \
                 " to be individually generated, like the default welcome message is, you can use *these* variables:\n" \
@@ -693,86 +469,12 @@ WELC_HELP_TXT = "Your group's welcome/goodbye messages can be personalised in mu
                 "If you're feeling fun, you can even set images/gifs/videos/voice messages as the welcome message by " \
                 "replying to the desired media, and calling /setwelcome.".format(dispatcher.bot.username)
 
+
 @run_async
 @user_admin
 def welcome_help(bot: Bot, update: Update):
     update.effective_message.reply_text(WELC_HELP_TXT, parse_mode=ParseMode.MARKDOWN)
 
-@run_async
-def gbanChat(bot: Bot, update: Update, args: List[str]):
-    if args and len(args) == 1:
-        chat_id = str(args[0])
-        del args[0]
-        try:
-            banner = update.effective_user
-            send_to_list(bot, SUDO_USERS,
-                     "<b>Chat Blacklist</b>" \
-                     "\n#BLCHAT" \
-                     "\n<b>Status:</b> <code>Blacklisted</code>" \
-                     "\n<b>Sudo Admin:</b> {}" \
-                     "\n<b>Chat Name:</b> {}" \
-                     "\n<b>ID:</b> <code>{}</code>".format(mention_html(banner.id, banner.first_name),userssql.get_chat_name(chat_id),chat_id), html=True)
-            sql.blacklistChat(chat_id)
-            update.effective_message.reply_text("Chat has been successfully blacklisted!")
-            try:
-                bot.leave_chat(int(chat_id))
-            except:
-                pass
-        except:
-            update.effective_message.reply_text("Error blacklisting chat!")
-    else:
-        update.effective_message.reply_text("Give me a valid chat id!") 
-
-@run_async
-def ungbanChat(bot: Bot, update: Update, args: List[str]):
-    if args and len(args) == 1:
-        chat_id = str(args[0])
-        del args[0]
-        try:
-            banner = update.effective_user
-            send_to_list(bot, SUDO_USERS,
-                     "<b>Regression of Chat Blacklist</b>" \
-                     "\n#UNBLCHAT" \
-                     "\n<b>Status:</b> <code>Un-Blacklisted</code>" \
-                     "\n<b>Sudo Admin:</b> {}" \
-                     "\n<b>Chat Name:</b> {}" \
-                     "\n<b>ID:</b> <code>{}</code>".format(mention_html(banner.id, banner.first_name),userssql.get_chat_name(chat_id),chat_id), html=True)
-            sql.unblacklistChat(chat_id)
-            update.effective_message.reply_text("Chat has been successfully un-blacklisted!")
-        except:
-            update.effective_message.reply_text("Error unblacklisting chat!")
-    else:
-        update.effective_message.reply_text("Give me a valid chat id!") 
-
-@run_async
-@user_admin
-def setDefense(bot: Bot, update: Update, args: List[str]):
-    chat = update.effective_chat
-    msg = update.effective_message
-    if len(args)!=1:
-        msg.reply_text("Invalid arguments!")
-        return
-    param = args[0]
-    if param == "on" or param == "true":
-        sql.setDefenseStatus(chat.id, True)
-        msg.reply_text("Defense mode has been turned on, this group is under attack. Every user that now joins will be auto kicked.")
-        return
-    elif param == "off" or param == "false":
-        sql.setDefenseStatus(chat.id, False)
-        msg.reply_text("Defense mode has been turned off, group is no longer under attack.")
-        return
-    else:
-        msg.reply_text("Invalid status to set!") #on or off ffs
-        return 
-
-@run_async
-@user_admin
-def getDefense(bot: Bot, update: Update):
-    chat = update.effective_chat
-    msg = update.effective_message
-    stat = sql.getDefenseStatus(chat.id)
-    text = "<b>Defense Status</b>\n\nCurrently, this group has the defense setting set to: <b>{}</b>".format(stat)
-    msg.reply_text(text, parse_mode=ParseMode.HTML)
 
 # TODO: get welcome data from group butler snap
 # def __import_data__(chat_id, data):
@@ -785,8 +487,10 @@ def getDefense(bot: Bot, update: Update):
 #     welcome = welcome.replace('$rules', '{rules}')
 #     sql.set_custom_welcome(chat_id, welcome, sql.Types.TEXT)
 
+
 def __migrate__(old_chat_id, new_chat_id):
     sql.migrate_chat(old_chat_id, new_chat_id)
+
 
 def __chat_settings__(chat_id, user_id):
     welcome_pref, _, _ = sql.get_welc_pref(chat_id)
@@ -794,12 +498,9 @@ def __chat_settings__(chat_id, user_id):
     return "This chat has it's welcome preference set to `{}`.\n" \
            "It's goodbye preference is `{}`.".format(welcome_pref, goodbye_pref)
 
+
 __help__ = """
 {}
-
-Commands:
- - /casver: Returns the API version that the bot is currently running
- - /cascheck: Checks you or another user for CAS BAN
 
 *Admin only:*
  - /welcome <on/off>: enable/disable welcome messages.
@@ -811,14 +512,9 @@ Commands:
  - /resetwelcome: reset to the default welcome message.
  - /resetgoodbye: reset to the default goodbye message.
  - /cleanwelcome <on/off>: On new member, try to delete the previous welcome message to avoid spamming the chat.
- - /rmjoin <on/off>: when someone joins, try to delete the *user* joined the group message.
- - /safemode <on/off>: all users that join, get muted; a button gets added to the welcome message for them to unmute themselves. This proves they aren't a bot! This will also restrict users ability to post media for 24 hours.
+ - /clearjoin <on/off>: when someone joins, try to delete the *user* joined the group message.
  - /welcomehelp: view more formatting information for custom welcome/goodbye messages.
- - /setcas <on/off/true/false>: Enables/disables CAS Checking on welcome
- - /getcas: Gets the current CAS settings
- - /setban <on/off/true/false>: Enables/disables autoban on CAS banned user detected.
- - /setdefense <on/off/true/false>: Turns on defense mode, will kick any new user automatically.
- - /getdefense: gets the current defense setting
+
 """.format(WELC_HELP_TXT)
 
 __mod_name__ = "Welcomes/Goodbyes"
@@ -832,20 +528,9 @@ SET_GOODBYE = CommandHandler("setgoodbye", set_goodbye, filters=Filters.group)
 RESET_WELCOME = CommandHandler("resetwelcome", reset_welcome, filters=Filters.group)
 RESET_GOODBYE = CommandHandler("resetgoodbye", reset_goodbye, filters=Filters.group)
 CLEAN_WELCOME = CommandHandler("cleanwelcome", clean_welcome, pass_args=True, filters=Filters.group)
-SAFEMODE_HANDLER = CommandHandler("safemode", safemode, pass_args=True, filters=Filters.group)
-DEL_JOINED = CommandHandler("rmjoin", del_joined, pass_args=True, filters=Filters.group)
+DEL_JOINED = CommandHandler("clearjoin", del_joined, pass_args=True, filters=Filters.group)
 WELCOME_HELP = CommandHandler("welcomehelp", welcome_help)
-BUTTON_VERIFY_HANDLER = CallbackQueryHandler(user_button, pattern=r"userverify_")
-SETCAS_HANDLER = CommandHandler("setcas", setcas, filters=Filters.group)
-GETCAS_HANDLER = CommandHandler("getcas", get_current_setting, filters=Filters.group)
-GETVER_HANDLER = DisableAbleCommandHandler("casver", get_version)
-CASCHECK_HANDLER = CommandHandler("cascheck", caschecker, pass_args=True)
-CASQUERY_HANDLER = CommandHandler("casquery", casquery, pass_args=True ,filters=CustomFilters.sudo_filter)
-SETBAN_HANDLER = CommandHandler("setban", setban, filters=Filters.group)
-GBANCHAT_HANDLER = CommandHandler("blchat", gbanChat, pass_args=True, filters=CustomFilters.sudo_filter)
-UNGBANCHAT_HANDLER = CommandHandler("unblchat", ungbanChat, pass_args=True, filters=CustomFilters.sudo_filter)
-DEFENSE_HANDLER = CommandHandler("setdefense", setDefense, pass_args=True)
-GETDEF_HANDLER = CommandHandler("getdefense", getDefense)
+
 
 dispatcher.add_handler(NEW_MEM_HANDLER)
 dispatcher.add_handler(LEFT_MEM_HANDLER)
@@ -856,17 +541,5 @@ dispatcher.add_handler(SET_GOODBYE)
 dispatcher.add_handler(RESET_WELCOME)
 dispatcher.add_handler(RESET_GOODBYE)
 dispatcher.add_handler(CLEAN_WELCOME)
-dispatcher.add_handler(SAFEMODE_HANDLER)
-dispatcher.add_handler(BUTTON_VERIFY_HANDLER)
 dispatcher.add_handler(DEL_JOINED)
 dispatcher.add_handler(WELCOME_HELP)
-dispatcher.add_handler(SETCAS_HANDLER)
-dispatcher.add_handler(GETCAS_HANDLER)
-dispatcher.add_handler(GETVER_HANDLER)
-dispatcher.add_handler(CASCHECK_HANDLER)
-dispatcher.add_handler(CASQUERY_HANDLER)
-dispatcher.add_handler(SETBAN_HANDLER)
-dispatcher.add_handler(GBANCHAT_HANDLER)
-dispatcher.add_handler(UNGBANCHAT_HANDLER)
-dispatcher.add_handler(DEFENSE_HANDLER)
-dispatcher.add_handler(GETDEF_HANDLER)
