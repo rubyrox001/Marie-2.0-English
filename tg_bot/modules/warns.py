@@ -55,18 +55,18 @@ def warn(user: User, chat: Chat, reason: str, message: Message, warner: User = N
         log_reason = "<b>{}:</b>" \
                      "\n#WARN_BAN" \
                      "\n<b>Admin:</b> {}" \
-                     "\n<b>User:</b> {}" \
+                     "\n<b>User:</b> {} (<code>{}</code>)" \
                      "\n<b>Reason:</b> {}"\
                      "\n<b>Counts:</b> <code>{}/{}</code>".format(html.escape(chat.title),
                                                                   warner_tag,
-                                                                  mention_html(user.id, user.first_name), 
-                                                                  reason, num_warns, limit)
+                                                                  mention_html(user.id, user.first_name),
+                                                                  user.id, reason, num_warns, limit)
 
     else:
         keyboard = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Remove warn", callback_data="rm_warn({})".format(user.id))]])
+            [[InlineKeyboardButton("Remove warn (admin only)", callback_data="rm_warn({})".format(user.id))]])
 
-        reply = "{} has {}/{} warnings... watch out!".format(mention_html(user.id, user.first_name), num_warns,
+        reply = "{} <b>has been WARNED!</b> \n Count: {}/{}".format(mention_html(user.id, user.first_name), num_warns,
                                                              limit)
         if reason:
             reply += "\nReason for last warn:\n{}".format(html.escape(reason))
@@ -74,12 +74,12 @@ def warn(user: User, chat: Chat, reason: str, message: Message, warner: User = N
         log_reason = "<b>{}:</b>" \
                      "\n#WARN" \
                      "\n<b>Admin:</b> {}" \
-                     "\n<b>User:</b> {}" \
+                     "\n<b>User:</b> {} (<code>{}</code>)" \
                      "\n<b>Reason:</b> {}"\
                      "\n<b>Counts:</b> <code>{}/{}</code>".format(html.escape(chat.title),
                                                                   warner_tag,
-                                                                  mention_html(user.id, user.first_name), 
-                                                                  reason, num_warns, limit)
+                                                                  mention_html(user.id, user.first_name),
+                                                                  user.id, reason, num_warns, limit)
 
     try:
         message.reply_text(reply, reply_markup=keyboard, parse_mode=ParseMode.HTML)
@@ -93,7 +93,6 @@ def warn(user: User, chat: Chat, reason: str, message: Message, warner: User = N
 
 
 @run_async
-@user_admin_no_reply
 @bot_admin
 @loggable
 def button(bot: Bot, update: Update) -> str:
@@ -103,6 +102,9 @@ def button(bot: Bot, update: Update) -> str:
     if match:
         user_id = match.group(1)
         chat = update.effective_chat  # type: Optional[Chat]
+        if not is_user_admin(chat, int(user.id)):
+            query.answer(text="You are not authorized to remove this warn! Only administrators may remove warns.", show_alert=True)
+            return ""
         res = sql.remove_warn(user_id, chat.id)
         if res:
             update.effective_message.edit_text(
@@ -112,9 +114,10 @@ def button(bot: Bot, update: Update) -> str:
             return "<b>{}:</b>" \
                    "\n#UNWARN" \
                    "\n<b>Admin:</b> {}" \
-                   "\n<b>User:</b> {}".format(html.escape(chat.title),
-                                              mention_html(user.id, user.first_name),
-                                              mention_html(user_member.user.id, user_member.user.first_name))
+                   "\n<b>User:</b> {} (<code>{}</code>)".format(html.escape(chat.title),
+                                                                mention_html(user.id, user.first_name),
+                                                                mention_html(user_member.user.id, user_member.user.first_name),
+                                                                user_member.user.id)
         else:
             update.effective_message.edit_text(
                 "User has already has no warns.".format(mention_html(user.id, user.first_name)),
@@ -162,9 +165,10 @@ def reset_warns(bot: Bot, update: Update, args: List[str]) -> str:
         return "<b>{}:</b>" \
                "\n#RESETWARNS" \
                "\n<b>Admin:</b> {}" \
-               "\n<b>User:</b> {}".format(html.escape(chat.title),
-                                          mention_html(user.id, user.first_name),
-                                          mention_html(warned.id, warned.first_name))
+               "\n<b>User:</b> {} (<code>{}</code>)".format(html.escape(chat.title),
+                                                            mention_html(user.id, user.first_name),
+                                                            mention_html(warned.id, warned.first_name),
+                                                            warned.id)
     else:
         message.reply_text("No user has been designated!")
     return ""
