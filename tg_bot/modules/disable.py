@@ -150,6 +150,7 @@ if is_module_loaded(FILENAME):
 
     __help__ = """
  - /cmds: check the current status of disabled commands
+
 *Admin only:*
  - /enable <cmd name>: enable that command
  - /disable <cmd name>: disable that command
@@ -169,4 +170,3 @@ if is_module_loaded(FILENAME):
 else:
     DisableAbleCommandHandler = CommandHandler
     DisableAbleRegexHandler = RegexHandler
-
