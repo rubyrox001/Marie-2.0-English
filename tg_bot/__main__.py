@@ -26,7 +26,7 @@ I'm Genius, Billionaire, Playboy, Philanthropist!
 
 You can find the list of available commands with /help.
 
-**Keep in mind that any changes you DO do to the source have to be on github, as per the license.**
+Want to add me in your group? [Click here!](https://telegram.me/Rubytony_bot?startgroup=add)
 
 """
 
