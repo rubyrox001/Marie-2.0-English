@@ -14,14 +14,6 @@ from tg_bot.modules.helper_funcs.filters import CustomFilters
 
 USERS_GROUP = 4
 
-MESSAGES = (
-    "Happy birthday ",
-    "Heppi burfdey ",
-    "Hep burf ",
-    "Happy day of birthing ",
-    "Sadn't deathn't-day ",
-    "Oof, you were born today ",
-)
 
 @run_async
 def quickscope(bot: Bot, update: Update, args: List[int]):
@@ -86,17 +78,6 @@ def snipe(bot: Bot, update: Update, args: List[str]):
 
 
 @run_async
-@user_admin
-def birthday(bot: Bot, update: Update, args: List[str]):
-    if args:
-        username = str(",".join(args))
-    bot.sendChatAction(update.effective_chat.id, "typing") # Bot typing before send messages
-    for i in range(5):
-        bdaymessage = random.choice(MESSAGES)
-        update.effective_message.reply_text(bdaymessage + username)
-
-
-@run_async
 @bot_admin
 def getlink(bot: Bot, update: Update, args: List[int]):
     if args:
@@ -122,20 +103,20 @@ def leavechat(bot: Bot, update: Update, args: List[int]):
 
 __help__ = """
 *Owner only:*
-- /getlink *chatid*: Get the invite link for a specific chat.
-- /banall: Ban all members from a chat
+- /getlink *chatid* : Get the invite link for a specific chat.
+- /banall : Ban all members from a chat
 - /leavechat *chatid* : leave a chat
 
 *Sudo/owner only:*
-- /quickscope *userid* *chatid*: Ban user from chat.
-- /quickunban *userid* *chatid*: Unban user from chat.
-- /snipe *chatid* *string*: Make me send a message to a specific chat.
-- /rban *userid* *chatid* remotely ban a user from a chat
-- /runban *userid* *chatid* remotely unban a user from a chat
-- /Stats: check bot's stats
-- /chatlist: get chatlist
-- /gbanlist: get gbanned users list
-- /gmutelist: get gmuted users list
+- /quickscope *userid* *chatid* : Ban user from chat.
+- /quickunban *userid* *chatid* : Unban user from chat.
+- /snipe *chatid* *string* : Make me send a message to a specific chat.
+- /rban *userid* *chatid* : remotely ban a user from a chat
+- /runban *userid* *chatid* : remotely unban a user from a chat
+- /Stats : check bot's stats
+- /chatlist : get chatlist
+- /gbanlist : get gbanned users list
+- /gmutelist : get gmuted users list
 - Chat bans via /restrict chat_id and /unrestrict chat_id commands
 
 *Support user:*
@@ -146,14 +127,10 @@ __help__ = """
 Sudo/owner can use these commands too.
 
 *Owner only:*
-- /banall: Ban all members from a chat
+- /banall : Ban all members from a chat
 
 *Sudo only:*
-- /snipe *chatid* *string*: Make me send a message to a specific chat.
-
-*Admin only:*
-- /birthday *@username*: Spam user with birthday wishes.
-
+- /snipe *chatid* *string* : Make me send a message to a specific chat.
 """
 __mod_name__ = "Special"
 
@@ -163,9 +140,7 @@ QUICKSCOPE_HANDLER = CommandHandler("quickscope", quickscope, pass_args=True, fi
 QUICKUNBAN_HANDLER = CommandHandler("quickunban", quickunban, pass_args=True, filters=CustomFilters.sudo_filter)
 GETLINK_HANDLER = CommandHandler("getlink", getlink, pass_args=True, filters=Filters.user(OWNER_ID))
 LEAVECHAT_HANDLER = CommandHandler("leavechat", leavechat, pass_args=True, filters=Filters.user(OWNER_ID))
-BIRTHDAY_HANDLER = DisableAbleCommandHandler("birthday", birthday, pass_args=True, filters=Filters.group)
 
-dispatcher.add_handler(BIRTHDAY_HANDLER)
 dispatcher.add_handler(SNIPE_HANDLER)
 dispatcher.add_handler(BANALL_HANDLER)
 dispatcher.add_handler(QUICKSCOPE_HANDLER)
