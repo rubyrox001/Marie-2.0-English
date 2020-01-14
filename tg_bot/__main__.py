@@ -1,3 +1,4 @@
+import datetime
 import importlib
 import re
 from typing import Optional, List
@@ -6,7 +7,7 @@ from telegram import Message, Chat, Update, Bot, User
 from telegram import ParseMode, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import Unauthorized, BadRequest, TimedOut, NetworkError, ChatMigrated, TelegramError
 from telegram.ext import CommandHandler, Filters, MessageHandler, CallbackQueryHandler
-from telegram.ext.dispatcher import run_async, DispatcherHandlerStop
+from telegram.ext.dispatcher import run_async, DispatcherHandlerStop, Dispatcher
 from telegram.utils.helpers import escape_markdown
 
 from tg_bot import dispatcher, updater, TOKEN, WEBHOOK, OWNER_ID, DONATION_LINK, CERT_PATH, PORT, URL, LOGGER, \
@@ -18,36 +19,36 @@ from tg_bot.modules.helper_funcs.chat_status import is_user_admin
 from tg_bot.modules.helper_funcs.misc import paginate_modules
 
 PM_START_TEXT = """
-hoi {}, my name is {}! I'm here to help you to manage your groups.
-
-I'm Genius, Billionaire, Playboy, Philanthropist! 
-
-[I Love my Creator 3000](tg://user?id={}).
-
+Hi {}, my name is {}! If you have any questions on how to use me, read /help .
+I'm a group manager bot maintained by [This Guy](tg://user?id={}). 
 You can find the list of available commands with /help.
-
-Want to add me in your group? [Click here!](https://telegram.me/Rubytony_bot?startgroup=add)
+If you're enjoying using me, and/or would like to help me survive in the wild, hit /donate to help fund/upgrade my VPS!
+[Click here to add me in your groups](https://telegram.me/saraak_bot?startgroup=add)
 """
 
+
+
+
+
 HELP_STRINGS = """
-
-Hello! my name is *{}*.
-I'm a modular group management bot with a few fun extras! Have a look at the following for an idea of some of the things I can help you with.
-
-*Main* available commands:
- - /start: Start the bot...
- - /help: help....
- - /donate: To find out more about donating!
+Hey there! My name is *{}*.
+I'm a modular group management bot with a few fun extras! Have a look at the following for an idea of some of \
+the things I can help you with.
+*Main* commands available:
+ - /start: start the bot
+ - /help: PM's you this message.
+ - /help <module name>: PM's you info about that module.
+ - /donate: information about how to donate!
  - /settings:
-   - in PM : To find out what SETTINGS you have set....
-   - in a group : will redirect you to pm, with all that chat's settings.
-
+   - in PM: will send you your settings for all supported modules.
+   - in a group: will redirect you to pm, with all that chat's settings.
 {}
 And the following:
-""".format(dispatcher.bot.first_name, "" if not ALLOW_EXCL else "\nAll of the following commands  / or ! can  be used...\n")
+""".format(dispatcher.bot.first_name, "" if not ALLOW_EXCL else "\nAll commands can either be used with / or !.\n")
 
 DONATE_STRING = """Heya, glad to hear you want to donate!
-If you want to donate, PM [Ruby💎](t.me/RubyRox), and ask for donate."""
+If you want to donate, PM [Aditya](t.me/Aditya19v), and ask for donate. \
+If you really want to donate, it could really help me to upgrade my VPS."""
 
 IMPORTED = {}
 MIGRATEABLE = []
@@ -139,8 +140,7 @@ def start(bot: Bot, update: Update, args: List[str]):
                 PM_START_TEXT.format(escape_markdown(first_name), escape_markdown(bot.first_name), OWNER_ID),
                 parse_mode=ParseMode.MARKDOWN)
     else:
-        update.effective_message.reply_text("Yo bois, I'm still alive 🤖")
-
+        update.effective_message.reply_text("Hello Sweetheart 😊")
 
 # for test purposes
 def error_callback(bot, update, error):
@@ -286,7 +286,8 @@ def settings_button(bot: Bot, update: Update):
             module = mod_match.group(2)
             chat = bot.get_chat(chat_id)
             text = "*{}* has the following settings for the *{}* module:\n\n".format(escape_markdown(chat.title),
-                                                                                     CHAT_SETTINGS[module].__mod_name__) + \
+                                                                                     CHAT_SETTINGS[
+                                                                                         module].__mod_name__) + \
                    CHAT_SETTINGS[module].__chat_settings__(chat_id, user.id)
             query.message.reply_text(text=text,
                                      parse_mode=ParseMode.MARKDOWN,
@@ -369,7 +370,7 @@ def donate(bot: Bot, update: Update):
         update.effective_message.reply_text(DONATE_STRING, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
 
         if OWNER_ID != 254318997 and DONATION_LINK:
-            update.effective_message.reply_text("You can also donate to the person currently running me "
+            update.effective_message.reply_text("You can also donate to the main creator of bot "
                                                 "[here]({})".format(DONATION_LINK),
                                                 parse_mode=ParseMode.MARKDOWN)
 
@@ -377,7 +378,7 @@ def donate(bot: Bot, update: Update):
         try:
             bot.send_message(user.id, DONATE_STRING, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
 
-            update.effective_message.reply_text("I've PM'ed you about donating to my creator!")
+            update.effective_message.reply_text("I've PM'ed you about donating to my creator :D")
         except Unauthorized:
             update.effective_message.reply_text("Contact me in PM first to get donation information.")
 
@@ -425,9 +426,12 @@ def main():
 
     # dispatcher.add_error_handler(error_callback)
 
+    # add antiflood processor
+    Dispatcher.process_update = process_update
+
     if WEBHOOK:
         LOGGER.info("Using webhooks.")
-        updater.start_webhook(listen="0.0.0.0",
+        updater.start_webhook(listen="127.0.0.1",
                               port=PORT,
                               url_path=TOKEN)
 
@@ -442,6 +446,61 @@ def main():
         updater.start_polling(timeout=15, read_latency=4)
 
     updater.idle()
+
+
+CHATS_CNT = {}
+CHATS_TIME = {}
+
+
+def process_update(self, update):
+    # An error happened while polling
+    if isinstance(update, TelegramError):
+        try:
+            self.dispatch_error(None, update)
+        except Exception:
+            self.logger.exception('An uncaught error was raised while handling the error')
+        return
+
+    now = datetime.datetime.utcnow()
+    cnt = CHATS_CNT.get(update.effective_chat.id, 0)
+
+    t = CHATS_TIME.get(update.effective_chat.id, datetime.datetime(1970, 1, 1))
+    if t and now > t + datetime.timedelta(0, 1):
+        CHATS_TIME[update.effective_chat.id] = now
+        cnt = 0
+    else:
+        cnt += 1
+
+    if cnt > 10:
+        return
+
+    CHATS_CNT[update.effective_chat.id] = cnt
+    for group in self.groups:
+        try:
+            for handler in (x for x in self.handlers[group] if x.check_update(update)):
+                handler.handle_update(update, self)
+                break
+
+        # Stop processing with any other handler.
+        except DispatcherHandlerStop:
+            self.logger.debug('Stopping further handlers due to DispatcherHandlerStop')
+            break
+
+        # Dispatch any error.
+        except TelegramError as te:
+            self.logger.warning('A TelegramError was raised while processing the Update')
+
+            try:
+                self.dispatch_error(update, te)
+            except DispatcherHandlerStop:
+                self.logger.debug('Error handler stopped further handlers')
+                break
+            except Exception:
+                self.logger.exception('An uncaught error was raised while handling the error')
+
+        # Errors should not stop the thread.
+        except Exception:
+            self.logger.exception('An uncaught error was raised while processing the update')
 
 
 if __name__ == '__main__':
