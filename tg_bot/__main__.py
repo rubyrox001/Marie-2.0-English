@@ -33,14 +33,15 @@ Want to add me in your group? [Click here!](https://telegram.me/Rubytony_bot?sta
 HELP_STRINGS = """
 
 Hello! my name is *{}*.
+I'm a modular group management bot with a few fun extras! Have a look at the following for an idea of some of the things I can help you with.
 
 *Main* available commands:
  - /start: Start the bot...
  - /help: help....
  - /donate: To find out more about donating!
  - /settings:
-   - in PM: To find out what SETTINGS you have set....
-   - in a group:
+   - in PM : To find out what SETTINGS you have set....
+   - in a group : will redirect you to pm, with all that chat's settings.
 
 {}
 And the following:
