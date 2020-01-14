@@ -5,7 +5,6 @@ from telegram import User, Chat, ChatMember, Update, Bot
 
 from tg_bot import DEL_CMDS, SUDO_USERS, WHITELIST_USERS
 import tg_bot.modules.sql.admin_sql as admin_sql
-from tg_bot.modules.translations.strings import tld
 
 
 def can_delete(chat: Chat, bot_id: int) -> bool:
