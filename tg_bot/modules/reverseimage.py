@@ -10,9 +10,9 @@ from typing import List
 from telegram import ParseMode, InputMediaPhoto, Update, Bot, TelegramError
 from telegram.ext import run_async
 
-from haruka import dispatcher
+from tg_bot import dispatcher
 
-from haruka.modules.disable import DisableAbleCommandHandler
+from tg_bot.modules.disable import DisableAbleCommandHandler
 
 
 opener = urllib.request.build_opener()
