@@ -32,7 +32,7 @@ Want to add me in your group? [Click here!](https://telegram.me/Rubytony_bot?sta
 
 HELP_STRINGS = """
 
-Hello! my name *{}*.
+Hello! my name is *{}*.
 
 *Main* available commands:
  - /start: Start the bot...
