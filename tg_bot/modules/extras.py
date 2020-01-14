@@ -259,6 +259,7 @@ __help__ = """
  - /table : get flip/unflip :v.
  - /decide : Randomly answers yes/no/maybe
  - /toss : Tosses A coin
+ - /insult : Insults the person
  - /abuse : Abuses the cunt
  - /tts <any text> : Converts text to speech
  - /bluetext : check urself :V
