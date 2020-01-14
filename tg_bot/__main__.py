@@ -24,9 +24,9 @@ I'm Genius, Billionaire, Playboy, Philanthropist!
 
 [I Love my Creator 3000](tg://user?id={}).
 
-You can find the list of available commands with /help.
-
 Want to add me in your group? [Click here!](t.me/Rubytony_bot?startgroup=add)
+
+You can find the list of available commands with /help.
 """
 
 HELP_STRINGS = """
