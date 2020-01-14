@@ -18,3 +18,5 @@ pynewtonmath
 bs4
 telegraph
 googletrans
+geopy
+spongemock
