@@ -26,7 +26,7 @@ I'm Genius, Billionaire, Playboy, Philanthropist!
 
 You can find the list of available commands with /help.
 
-Want to add me in your group? [Click here!](https://telegram.me/Rubytony_bot?startgroup=add)
+Want to add me in your group? [Click here!](t.me/Rubytony_bot?startgroup=add)
 """
 
 HELP_STRINGS = """
