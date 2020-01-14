@@ -71,11 +71,11 @@ def ban(bot: Bot, update: Update, args: List[str]) -> str:
             raise
 
     if is_user_ban_protected(chat, user_id, member):
-        message.reply_text("I really wish I could ban admins...")
+        message.reply_text("I really wish I could snap admins...")
         return ""
 
     if user_id == bot.id:
-        message.reply_text("I'm not gonna BAN myself, are you crazy?")
+        message.reply_text("I'm not gonna SNAP myself, are you crazy?")
         return ""
 
     log = "<b>{}:</b>" \
@@ -91,19 +91,19 @@ def ban(bot: Bot, update: Update, args: List[str]) -> str:
     try:
         chat.kick_member(user_id)
         bot.send_sticker(chat.id, BAN_STICKER)  # banhammer marie sticker
-        message.reply_text("Banned!")
+        message.reply_text("Snapped!")
         return log
 
     except BadRequest as excp:
         if excp.message == "Reply message not found":
             # Do not reply
-            message.reply_text('Banned!', quote=False)
+            message.reply_text('Snapped!', quote=False)
             return log
         else:
             LOGGER.warning(update)
             LOGGER.exception("ERROR banning user %s in chat %s (%s) due to %s", user_id, chat.title, chat.id,
                              excp.message)
-            message.reply_text("Well damn, I can't ban that user.")
+            message.reply_text("Well damn, I can't snap that user.")
 
     return ""
 
@@ -134,15 +134,15 @@ def temp_ban(bot: Bot, update: Update, args: List[str]) -> str:
             raise
 
     if is_user_ban_protected(chat, user_id, member):
-        message.reply_text("I really wish I could ban admins...")
+        message.reply_text("I really wish I could snap admins...")
         return ""
 
     if user_id == bot.id:
-        message.reply_text("I'm not gonna BAN myself, are you crazy?")
+        message.reply_text("I'm not gonna SNAP myself, are you crazy?")
         return ""
 
     if not reason:
-        message.reply_text("You haven't specified a time to ban this user for!")
+        message.reply_text("You haven't specified a time to snap this user for!")
         return ""
 
     split_reason = reason.split(None, 1)
@@ -181,13 +181,13 @@ def temp_ban(bot: Bot, update: Update, args: List[str]) -> str:
     except BadRequest as excp:
         if excp.message == "Reply message not found":
             # Do not reply
-            message.reply_text("Banned! User will be banned for {}.".format(time_val), quote=False)
+            message.reply_text("Snapped! User will be snapped for {}.".format(time_val), quote=False)
             return log
         else:
             LOGGER.warning(update)
             LOGGER.exception("ERROR banning user %s in chat %s (%s) due to %s", user_id, chat.title, chat.id,
                              excp.message)
-            message.reply_text("Well damn, I can't ban that user.")
+            message.reply_text("Well damn, I can't snap that user.")
 
     return ""
 
@@ -389,27 +389,27 @@ def rban(bot: Bot, update: Update, args: List[str]):
             raise
 
     if is_user_ban_protected(chat, user_id, member):
-        message.reply_text("I really wish I could ban admins...")
+        message.reply_text("I really wish I could snap admins...")
         return
 
     if user_id == bot.id:
-        message.reply_text("I'm not gonna BAN myself, are you crazy?")
+        message.reply_text("I'm not gonna SNAP myself, are you crazy?")
         return
 
     try:
         chat.kick_member(user_id)
-        message.reply_text("Banned!")
+        message.reply_text("Snapped!")
     except BadRequest as excp:
         if excp.message == "Reply message not found":
             # Do not reply
-            message.reply_text('Banned!', quote=False)
+            message.reply_text('Snapped!', quote=False)
         elif excp.message in RBAN_ERRORS:
             message.reply_text(excp.message)
         else:
             LOGGER.warning(update)
             LOGGER.exception("ERROR banning user %s in chat %s (%s) due to %s", user_id, chat.title, chat.id,
                              excp.message)
-            message.reply_text("Well damn, I can't ban that user.")
+            message.reply_text("Well damn, I can't snap that user.")
 
 @run_async
 @bot_admin
