@@ -17,8 +17,8 @@ from tg_bot.__main__ import STATS, USER_INFO
 from tg_bot.modules.disable import DisableAbleCommandHandler
 
 def ironman(bot: Bot, update: Update):
-    tony = requests.get('http://api.oironman.ru/noise/1').json()[0]["preview"]
-    final = "http://media.oironman.ru/{}".format(tony)
+    tony = requests.get('https://wallpapercave.com/wp/wp4273083.jpg').json()[0]["preview"]
+    final = "https://wallpapercave.com/wp/wp4273083.jpg{}".format(tony)
     update.message.reply_photo(final)
 		
 __help__ = """
