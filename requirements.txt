@@ -20,3 +20,4 @@ telegraph
 googletrans
 geopy
 spongemock
+Pillow>=4.2.0
