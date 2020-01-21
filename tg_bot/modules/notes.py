@@ -245,6 +245,7 @@ def list_notes(bot: Bot, update: Update):
         update.effective_message.reply_text("No notes in this chat!")
 
     elif len(msg) != 0:
+        msg += "\nYou can retrieve these notes by using `/get notename`, or `#notename`"
         update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
 
 
