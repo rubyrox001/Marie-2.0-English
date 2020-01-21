@@ -5,6 +5,7 @@ sqlalchemy
 python-telegram-bot==11.1.0
 psycopg2-binary
 feedparser
+pythonping
 pyowm
 bs4
 lxml
@@ -22,3 +23,11 @@ geopy
 spongemock
 Pillow>=4.2.0
 wikipedia
+nltk
+aiohttp>=2.2.5
+#AEX
+hurry.filesize
+tldextract
+PyYAML
+bleach
+markdown2
