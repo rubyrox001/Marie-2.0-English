@@ -71,11 +71,11 @@ def ban(bot: Bot, update: Update, args: List[str]) -> str:
             raise
 
     if is_user_ban_protected(chat, user_id, member):
-        message.reply_text("I really wish I could snap admins...")
+        message.reply_text("You're really Strong. But I really wish I could Snap admins...")
         return ""
 
     if user_id == bot.id:
-        message.reply_text("I'm not gonna SNAP myself, are you crazy?")
+        message.reply_text("I'm not gonna SNAP myself, are you mad?")
         return ""
 
     log = "<b>{}:</b>" \
@@ -91,13 +91,13 @@ def ban(bot: Bot, update: Update, args: List[str]) -> str:
     try:
         chat.kick_member(user_id)
         bot.send_sticker(chat.id, BAN_STICKER)  # banhammer marie sticker
-        message.reply_text("Snapped!")
+        message.reply_text("I snap bad people like you to save the universe!")
         return log
 
     except BadRequest as excp:
         if excp.message == "Reply message not found":
             # Do not reply
-            message.reply_text('Snapped!', quote=False)
+            message.reply_text('I snap bad people like you to save the universe!', quote=False)
             return log
         else:
             LOGGER.warning(update)
@@ -134,11 +134,11 @@ def temp_ban(bot: Bot, update: Update, args: List[str]) -> str:
             raise
 
     if is_user_ban_protected(chat, user_id, member):
-        message.reply_text("I really wish I could snap admins...")
+        message.reply_text("You're really Strong. But I really wish I could snap admins...")
         return ""
 
     if user_id == bot.id:
-        message.reply_text("I'm not gonna SNAP myself, are you crazy?")
+        message.reply_text("I'm not gonna SNAP myself, are you mad?")
         return ""
 
     if not reason:
@@ -217,7 +217,7 @@ def kick(bot: Bot, update: Update, args: List[str]) -> str:
             raise
 
     if is_user_ban_protected(chat, user_id):
-        message.reply_text("I really wish I could kick admins...")
+        message.reply_text("You're really Strong. But I really wish I could kick admins...")
         return ""
 
     if user_id == bot.id:
@@ -255,7 +255,7 @@ def kick(bot: Bot, update: Update, args: List[str]) -> str:
 def kickme(bot: Bot, update: Update):
     user_id = update.effective_message.from_user.id
     if user_id == OWNER_ID:
-        update.effective_message.reply_text("Sar ;_____;")
+        update.effective_message.reply_text("Sar ;__; I can't kick you")
         return 
     elif is_user_admin(update.effective_chat, user_id):
           update.effective_message.reply_text("Ok Kicked (Joking)")
@@ -263,7 +263,7 @@ def kickme(bot: Bot, update: Update):
 
     res = update.effective_chat.unban_member(user_id)  # unban on current user = kick
     if res:
-        update.effective_message.reply_text("No problem.")
+        update.effective_message.reply_text("No problem. Kek -,-")
     else:
         update.effective_message.reply_text("Huh? I can't :/")
 
@@ -285,7 +285,7 @@ def banme(bot: Bot, update: Update):
 
     res = update.effective_chat.kick_member(user_id)  
     if res:
-        update.effective_message.reply_text("Nice To Meet U!")
+        update.effective_message.reply_text("Nice To Meet U nub!")
         log = "<b>{}:</b>" \
               "\n#BANME" \
               "\n<b>User:</b> {}" \
@@ -329,7 +329,7 @@ def unban(bot: Bot, update: Update, args: List[str]) -> str:
         return ""
 
     chat.unban_member(user_id)
-    message.reply_text("Yep, this user can join!")
+    message.reply_text("Yep! Destiny gave you second chance. Don't waste it.!")
 
     log = "<b>{}:</b>" \
           "\n#UNBANNED" \
@@ -389,11 +389,11 @@ def rban(bot: Bot, update: Update, args: List[str]):
             raise
 
     if is_user_ban_protected(chat, user_id, member):
-        message.reply_text("I really wish I could snap admins...")
+        message.reply_text("You're Strong! But I really wish I could snap admins...")
         return
 
     if user_id == bot.id:
-        message.reply_text("I'm not gonna SNAP myself, are you crazy?")
+        message.reply_text("I'm not gonna SNAP myself, are you mad?")
         return
 
     try:
@@ -465,7 +465,7 @@ def runban(bot: Bot, update: Update, args: List[str]):
 
     try:
         chat.unban_member(user_id)
-        message.reply_text("Yep, this user can join that chat!")
+        message.reply_text("Yep, Destiny gave you second chance. Don't waste it.!")
     except BadRequest as excp:
         if excp.message == "Reply message not found":
             # Do not reply
