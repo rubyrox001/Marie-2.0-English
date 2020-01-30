@@ -71,7 +71,7 @@ def ban(bot: Bot, update: Update, args: List[str]) -> str:
             raise
 
     if is_user_ban_protected(chat, user_id, member):
-        message.reply_text("You're really Strong. But I really wish I could Snap admins...")
+        message.reply_text("He is really Strong. But I really wish I could Snap admins...")
         return ""
 
     if user_id == bot.id:
@@ -134,7 +134,7 @@ def temp_ban(bot: Bot, update: Update, args: List[str]) -> str:
             raise
 
     if is_user_ban_protected(chat, user_id, member):
-        message.reply_text("You're really Strong. But I really wish I could snap admins...")
+        message.reply_text("He is really Strong. But I really wish I could snap admins...")
         return ""
 
     if user_id == bot.id:
@@ -217,7 +217,7 @@ def kick(bot: Bot, update: Update, args: List[str]) -> str:
             raise
 
     if is_user_ban_protected(chat, user_id):
-        message.reply_text("You're really Strong. But I really wish I could kick admins...")
+        message.reply_text("He is really Strong. But I really wish I could kick admins...")
         return ""
 
     if user_id == bot.id:
@@ -389,7 +389,7 @@ def rban(bot: Bot, update: Update, args: List[str]):
             raise
 
     if is_user_ban_protected(chat, user_id, member):
-        message.reply_text("You're Strong! But I really wish I could snap admins...")
+        message.reply_text("He is Strong! But I really wish I could snap admins...")
         return
 
     if user_id == bot.id:
